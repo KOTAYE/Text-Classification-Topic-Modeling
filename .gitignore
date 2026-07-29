@@ -1,0 +1,37 @@
+# --- Дані та моделі: ніколи не комітимо, вони важкі ---
+data/
+models/
+checkpoints/
+*.bin
+*.safetensors
+*.pt
+*.ckpt
+*.h5
+*.onnx
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Секрети: токени HF, ключі API, Telegram bot token ---
+.env
+*.key
+
+# --- Логи експериментів ---
+runs/
+logs/
+wandb/
+*.log
+
+# --- Системне ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
