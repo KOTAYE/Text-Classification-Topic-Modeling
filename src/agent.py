@@ -75,12 +75,27 @@ def build_agent():
     )
 
 
+def _warm_up():
+    """Touch both models up front.
+
+    Each takes about three seconds to load on first use. Doing it here, behind
+    a visible message, beats letting it land silently on whatever the user
+    types first.
+    """
+    classify_as_text("warm up")
+    lookup("warm up")
+
+
 def main():
     print("News topic agent. Type 'exit' to quit.")
     print(f"Model: {LLM}")
-    print(f"Tools: {', '.join(t.name for t in TOOLS)}\n")
+    print(f"Tools: {', '.join(t.name for t in TOOLS)}")
 
+    print("\nLoading models... ", end="", flush=True)
     agent = build_agent()
+    _warm_up()
+    print("ready\n")
+
     history = []
 
     while True:
