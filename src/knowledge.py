@@ -24,10 +24,17 @@ TOP_K = 3
 
 # Similarity search always returns its k nearest passages, however far away they
 # are, so without a floor the agent gets fed irrelevant text and invents an
-# answer from it. Measured on this document: questions it can answer score
-# 0.38-0.44, questions it cannot score 0.21-0.26. Re-check this if the document
-# changes substantially.
-MIN_SCORE = 0.30
+# answer from it.
+#
+# Measured over 17 questions against the filled-in document: answerable ones
+# score 0.30-0.59, unanswerable ones 0.21-0.24. That is a gap of only 0.06, so
+# this is a coarse filter, not a guarantee — it catches questions the notes are
+# nowhere near, and nothing more. The real defence against a made-up answer is
+# the instruction in the agent's system prompt to refuse when the retrieved
+# passages do not contain the answer.
+#
+# Re-run scripts/check_retrieval.py after editing the notes.
+MIN_SCORE = 0.26
 
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 
