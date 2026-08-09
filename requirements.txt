@@ -1,0 +1,8 @@
+# CPU-only torch: no GPU is needed for inference, and the CUDA build is ~10x larger
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch==2.13.0+cpu
+transformers==5.14.1
+langchain==1.3.14
+langchain-groq==1.1.3
+python-dotenv==1.2.2
