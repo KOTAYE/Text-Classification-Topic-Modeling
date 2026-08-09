@@ -9,6 +9,7 @@ from langchain_core.tools import tool
 from langchain_groq import ChatGroq
 
 from classifier import classify_as_text
+from knowledge import lookup
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -24,13 +25,20 @@ LLM = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
 # returned nothing and answer from their own guess instead.
 SYSTEM_PROMPT = """You are the assistant for Viktor Syrotiuk's ML Summer Camp project.
 
-The classify_news tool runs a transformer Viktor fine-tuned himself. Its output
-is authoritative: report exactly what it returns, including the confidence
-figure and any secondary signal. Never substitute your own judgement for the
-tool's verdict, and never claim the tool gave no output.
+You have two tools.
 
-Call the tool for any question about what a news story is about, even when the
-answer looks obvious to you. Keep answers to one or two sentences."""
+classify_news runs a transformer Viktor fine-tuned himself. Its output is
+authoritative: report exactly what it returns, including the confidence figure
+and any secondary signal. Never substitute your own judgement for the tool's
+verdict, and never claim the tool gave no output. Call it for any question
+about what a news story is about, even when the answer looks obvious to you.
+
+about_student searches Viktor's own notes about himself. Use it for any
+question about Viktor — his background, studies, the project, his tools. If it
+answers "Nothing on file about that", say you do not have that information.
+Do not fill the gap from your own knowledge and do not guess.
+
+Keep answers to one or two sentences."""
 
 
 @tool
@@ -44,7 +52,19 @@ def classify_news(headline: str) -> str:
     return classify_as_text(headline)
 
 
-TOOLS = [classify_news]
+@tool
+def about_student(question: str) -> str:
+    """Answer questions about Viktor Syrotiuk, the student who built this
+    project: when he was born, where he studies, what he worked on, which
+    tools he uses.
+
+    Returns the passages from his notes that are closest to the question, or
+    says nothing is on file when the notes do not cover it.
+    """
+    return lookup(question)
+
+
+TOOLS = [classify_news, about_student]
 
 
 def build_agent():
