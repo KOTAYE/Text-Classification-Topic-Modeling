@@ -125,6 +125,25 @@ models/       weights — not tracked
 Training runs on Google Colab with a T4 GPU. Weights are published to the
 Hugging Face Hub rather than committed here.
 
+## Running in Docker
+
+```bash
+docker build -t news-agent .
+docker run -it --rm --env-file src/.env news-agent
+```
+
+Both models are baked into the image at build time and `HF_HUB_OFFLINE=1` is
+set, so the container never contacts the Hugging Face Hub at run time. The
+image is around 4.3 GB: roughly 1.5 GB of dependencies (mostly torch) and
+1.2 GB of model weights.
+
+The API key is not in the image — `src/.env` is excluded by `.dockerignore`
+and passed in at run time instead.
+
+Note that the agent still needs a network connection: the classifier and the
+retrieval index run locally, but the chat model that drives them is a hosted
+API.
+
 ## Project status
 
 - [x] **Step 1** — fine-tune a transformer for topic classification

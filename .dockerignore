@@ -1,0 +1,18 @@
+# Secrets never enter the image — the key is passed at run time
+src/.env
+*.key
+
+# Not needed to run the agent
+.git
+.gitignore
+notebooks/
+scripts/
+data/
+models/
+README.md
+
+# Local Python noise
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
