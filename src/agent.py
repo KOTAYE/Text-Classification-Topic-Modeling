@@ -6,19 +6,30 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_core.tools import tool
-from langchain_groq import ChatGroq
 
 from classifier import classify_as_text
 from knowledge import lookup
 
 load_dotenv(Path(__file__).parent / ".env")
 
-# llama-3.1-8b-instant is faster and has a bigger daily quota, but it
-# intermittently emits malformed tool calls that Groq rejects with
-# tool_use_failed. Correctness wins: qwen handles tool calls reliably and
-# phrases the verdict well. Groq counts tokens per model per day, so switching
-# models is also the way out of a 429.
-LLM = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
+
+def _llm():
+    """Pick the chat model from whichever API key is configured.
+
+    OpenAI wins when its key is present. Groq is the free-tier fallback, and
+    on Groq the model matters: llama-3.1-8b-instant is faster with a bigger
+    daily quota but intermittently emits malformed tool calls that come back
+    as tool_use_failed, so the default is qwen. Groq also counts tokens per
+    model per day, which makes switching models the way out of a 429.
+    """
+    if os.environ.get("OPENAI_API_KEY"):
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI(model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
+
+    from langchain_groq import ChatGroq
+
+    return ChatGroq(model=os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b"), temperature=0)
 
 # Every sentence here earns its place. Without the explicit "report exactly what
 # it returns", small models paraphrase the verdict away or claim the tool
@@ -68,11 +79,7 @@ TOOLS = [classify_news, about_student]
 
 
 def build_agent():
-    return create_agent(
-        ChatGroq(model=LLM, temperature=0),
-        tools=TOOLS,
-        system_prompt=SYSTEM_PROMPT,
-    )
+    return create_agent(_llm(), tools=TOOLS, system_prompt=SYSTEM_PROMPT)
 
 
 def _warm_up():
@@ -87,12 +94,14 @@ def _warm_up():
 
 
 def main():
+    llm = _llm()
+
     print("News topic agent. Type 'exit' to quit.")
-    print(f"Model: {LLM}")
+    print(f"Model: {llm.model_name}")
     print(f"Tools: {', '.join(t.name for t in TOOLS)}")
 
     print("\nLoading models... ", end="", flush=True)
-    agent = build_agent()
+    agent = create_agent(llm, tools=TOOLS, system_prompt=SYSTEM_PROMPT)
     _warm_up()
     print("ready\n")
 
