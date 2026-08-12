@@ -91,6 +91,53 @@ The raw text contains leaked HTML entities (`&lt;b&gt;`), stripped ampersands
 ("AT T"), and stray backslashes. These were left untouched — the model handles
 them, and cleaning risked discarding signal.
 
+## Ukrainian, without retraining
+
+`xlm-roberta-base` was pretrained on 100 languages, so a model fine-tuned only
+on English AG News can be pointed at Ukrainian text as-is. This is what the
+0.5-point sacrifice against `roberta-base` was for.
+
+**Translated AG News.** 500 test items were machine-translated into Ukrainian
+(`scripts/build_ukrainian_eval.py`). Translation does not change what a story
+is about, so the labels carry over, and scoring the same items in both
+languages isolates the language from the sample:
+
+| | Accuracy | Macro F1 |
+|---|---|---|
+| English | 92.20% | 0.9233 |
+| Ukrainian | 89.80% | 0.8996 |
+
+**2.40 points** lost, and the model returns the same verdict in both languages
+for **95.6%** of stories. Note that this 500-item subsample scores 92.20% in
+English against 94.54% on the full test set — which is exactly why both
+languages are measured on the same items rather than against the headline
+figure.
+
+**Genuine Ukrainian news.** Machine translation reads like English wearing
+Ukrainian grammar, so the figure above is optimistic. As a cross-check,
+`scripts/eval_ukrainian_real.py` runs the classifier over
+`Zarakun/ukrainian_news`, mapping its rubrics onto these four classes:
+
+| Ukrainian rubric | Mapped to | Model agrees |
+|---|---|---|
+| `sport` | Sports | 92% |
+| `tech` | Sci/Tech | 93% |
+| `economy` | Business | 82% |
+| `financy` | Business | 67% |
+| `business` | Business | 55% |
+| `zakordon` | World | 28% |
+
+Overall accuracy is 69.0%, or **79.3% excluding `zakordon`** — and that
+exclusion is justified rather than convenient. "Zakordon" means "abroad", and
+the rubric holds fuel prices in Germany, labour shortages in the Netherlands
+and advice on learning languages. AG News' "World" means international
+politics and conflict. Mapping one to the other was a mistake in the
+evaluation, not a failure in the model.
+
+The `business` rubric splitting 55/40 between Business and Sci/Tech is the
+same confusion documented on English AG News above, showing up unchanged in
+Ukrainian: a property of the label scheme rather than of the language.
+
 ## Data
 
 | Split | Size | Purpose |
