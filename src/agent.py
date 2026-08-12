@@ -25,6 +25,9 @@ def _llm():
     if os.environ.get("OPENAI_API_KEY"):
         from langchain_openai import ChatOpenAI
 
+        # gpt-4o-mini rather than the newer gpt-4.1-mini or -nano: measured on
+        # this prompt, it is the only one of the three that repeats the
+        # classifier's confidence figures instead of paraphrasing them away.
         return ChatOpenAI(model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
 
     from langchain_groq import ChatGroq
@@ -68,6 +71,10 @@ def about_student(question: str) -> str:
     """Answer questions about Viktor Syrotiuk, the student who built this
     project: when he was born, where he studies, what he worked on, which
     tools he uses.
+
+    Pass the user's question through as they phrased it. Do not rewrite it to
+    insert his name — the search matches on meaning, and every note already
+    starts with his name, so adding it makes every note look equally relevant.
 
     Returns the passages from his notes that are closest to the question, or
     says nothing is on file when the notes do not cover it.

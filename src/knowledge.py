@@ -20,7 +20,12 @@ if not DOC.exists():
 # the corpus is one page and the questions are short and literal.
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-TOP_K = 3
+# Five rather than three. Every passage repeats the student's name, so a query
+# that also contains it matches all of them about equally and the useful signal
+# gets swamped: asking "What accuracy did Viktor's model reach?" ranks the
+# passage holding the number fourth, while the same question phrased with "his"
+# ranks it first. Widening the window covers that, and the model filters.
+TOP_K = 5
 
 # Similarity search always returns its k nearest passages, however far away they
 # are, so without a floor the agent gets fed irrelevant text and invents an
