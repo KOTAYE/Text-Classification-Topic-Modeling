@@ -172,6 +172,40 @@ models/       weights — not tracked
 Training runs on Google Colab with a T4 GPU. Weights are published to the
 Hugging Face Hub rather than committed here.
 
+## The agent
+
+A terminal agent with three tools:
+
+| Tool | What it does |
+|---|---|
+| `classify_news` | the fine-tuned classifier above, running locally |
+| `about_student` | retrieval over `knowledge/about_me.md` |
+| `send_telegram_message` | delivers a message to Telegram, over MCP |
+
+```bash
+python src/agent.py
+```
+
+Ask it to classify a headline and it calls the transformer. Ask about the
+student and it searches the notes, answering "I do not have that information"
+when they do not cover the question rather than inventing one. Ask it to send
+something to Telegram and it chains two tools: classify first, then send.
+
+### Telegram over MCP
+
+`src/telegram_mcp_server.py` is a Model Context Protocol server exposing
+`send_telegram_message` and `get_telegram_bot_name`. The agent starts it as a
+subprocess and talks to it over stdio, so nothing listens on a port and the
+container stays a single process.
+
+Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `src/.env` — see
+`src/.env.example`. Without them the agent starts with the other two tools
+instead of refusing to run.
+
+One thing worth knowing: Telegram puts the bot token in the URL path, and
+`httpx` logs request URLs at INFO level, so an unconfigured setup prints the
+token to the console on every call. The server sets that logger to WARNING.
+
 ## Running in Docker
 
 ```bash

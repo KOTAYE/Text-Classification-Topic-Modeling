@@ -1,16 +1,24 @@
-"""Terminal agent. Routes questions to the fine-tuned news classifier."""
+"""Terminal agent.
 
+Three tools: the fine-tuned news classifier, retrieval over the student's own
+notes, and Telegram — the last one reached over MCP rather than called directly.
+"""
+
+import asyncio
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_core.tools import tool
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from classifier import classify_as_text
 from knowledge import lookup
 
-load_dotenv(Path(__file__).parent / ".env")
+HERE = Path(__file__).parent
+load_dotenv(HERE / ".env")
 
 
 def _llm():
@@ -34,12 +42,11 @@ def _llm():
 
     return ChatGroq(model=os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b"), temperature=0)
 
+
 # Every sentence here earns its place. Without the explicit "report exactly what
 # it returns", small models paraphrase the verdict away or claim the tool
 # returned nothing and answer from their own guess instead.
 SYSTEM_PROMPT = """You are the assistant for Viktor Syrotiuk's ML Summer Camp project.
-
-You have two tools.
 
 classify_news runs a transformer Viktor fine-tuned himself. Its output is
 authoritative: report exactly what it returns, including the confidence figure
@@ -51,6 +58,10 @@ about_student searches Viktor's own notes about himself. Use it for any
 question about Viktor — his background, studies, the project, his tools. If it
 answers "Nothing on file about that", say you do not have that information.
 Do not fill the gap from your own knowledge and do not guess.
+
+send_telegram_message delivers a message to Viktor's Telegram. Only use it when
+asked to send, forward or save something there, and send the finished answer
+rather than a description of it. Say afterwards that it was sent.
 
 Keep answers to one or two sentences."""
 
@@ -82,11 +93,35 @@ def about_student(question: str) -> str:
     return lookup(question)
 
 
-TOOLS = [classify_news, about_student]
+LOCAL_TOOLS = [classify_news, about_student]
 
 
-def build_agent():
-    return create_agent(_llm(), tools=TOOLS, system_prompt=SYSTEM_PROMPT)
+async def telegram_tools() -> list:
+    """Tools served by the Telegram MCP server, or none if it is not configured.
+
+    The server runs as a subprocess over stdio rather than as a network
+    service: nothing gets exposed on a port, and the container stays a single
+    process. Without a bot token the agent simply comes up without Telegram
+    instead of refusing to start.
+    """
+    if not os.environ.get("TELEGRAM_BOT_TOKEN"):
+        return []
+
+    client = MultiServerMCPClient(
+        {
+            "telegram": {
+                "command": sys.executable,
+                "args": [str(HERE / "telegram_mcp_server.py")],
+                "transport": "stdio",
+            }
+        }
+    )
+    return await client.get_tools()
+
+
+async def build_agent():
+    tools = LOCAL_TOOLS + await telegram_tools()
+    return create_agent(_llm(), tools=tools, system_prompt=SYSTEM_PROMPT), tools
 
 
 def _warm_up():
@@ -100,17 +135,16 @@ def _warm_up():
     lookup("warm up")
 
 
-def main():
-    llm = _llm()
-
+async def main():
     print("News topic agent. Type 'exit' to quit.")
-    print(f"Model: {llm.model_name}")
-    print(f"Tools: {', '.join(t.name for t in TOOLS)}")
+    print("\nStarting up... ", end="", flush=True)
 
-    print("\nLoading models... ", end="", flush=True)
-    agent = create_agent(llm, tools=TOOLS, system_prompt=SYSTEM_PROMPT)
+    agent, tools = await build_agent()
     _warm_up()
     print("ready\n")
+
+    print(f"Model: {_llm().model_name}")
+    print(f"Tools: {', '.join(t.name for t in tools)}\n")
 
     history = []
 
@@ -126,10 +160,10 @@ def main():
             break
 
         history.append({"role": "user", "content": question})
-        history = agent.invoke({"messages": history})["messages"]
+        history = (await agent.ainvoke({"messages": history}))["messages"]
 
         print(f"\nAgent: {history[-1].content}\n")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
