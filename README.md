@@ -216,11 +216,43 @@ container the server would come up and then fail on the first send. The agent
 forwards `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` explicitly and nothing
 else, which keeps the OpenAI key out of the subprocess.
 
+## Web interface
+
+A small React page over the same agent, showing two things a terminal cannot.
+
+**The classifier's whole opinion, not just its verdict.** Every class gets a
+bar, so a story that splits 82/18 between Sci/Tech and Business reads as an
+argument the model nearly lost rather than a clean answer. This is the
+Business ↔ Sci/Tech confusion from the error analysis, visible live.
+
+**Proof that Telegram delivery happened.** When the agent sends something, the
+page shows the message alongside Telegram's own acknowledgement — the chat and
+message number it returned — rather than asserting that it worked.
+
+Each answer also carries badges for the tools the agent chose, which makes the
+routing visible: ask about a headline and the classifier lights up, ask about
+the student and retrieval does.
+
+```bash
+# development, with hot reload on http://localhost:5173
+uvicorn api:app --reload --port 8000 --app-dir src
+cd web && npm install && npm run dev
+```
+
 ## Running in Docker
+
+The frontend is built in a Node stage and only the built files are copied into
+the runtime image, so Node itself never ships.
 
 ```bash
 docker build -t news-agent .
+
+# terminal app
 docker run -it --rm --env-file src/.env news-agent
+
+# web interface on http://localhost:8000
+docker run --rm -p 8000:8000 --env-file src/.env news-agent \
+  python -m uvicorn api:app --host 0.0.0.0 --port 8000 --app-dir src
 ```
 
 Both models are baked into the image at build time and `HF_HUB_OFFLINE=1` is
