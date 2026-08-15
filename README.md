@@ -202,9 +202,19 @@ Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `src/.env` — see
 `src/.env.example`. Without them the agent starts with the other two tools
 instead of refusing to run.
 
-One thing worth knowing: Telegram puts the bot token in the URL path, and
-`httpx` logs request URLs at INFO level, so an unconfigured setup prints the
-token to the console on every call. The server sets that logger to WARNING.
+Two things worth knowing, both found by testing rather than by reading:
+
+Telegram puts the bot token in the URL path, and `httpx` logs request URLs at
+INFO level, so an unconfigured setup prints the token to the console on every
+call. The server sets that logger to WARNING.
+
+MCP starts servers with a deliberately minimal environment — `PATH`, `HOME`,
+`TEMP` and little else — so that a server cannot read every secret its host
+happens to hold. This goes unnoticed locally, where the server reads
+`src/.env` itself, but that file is excluded from the image, so in the
+container the server would come up and then fail on the first send. The agent
+forwards `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` explicitly and nothing
+else, which keeps the OpenAI key out of the subprocess.
 
 ## Running in Docker
 

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from mcp.client.stdio import get_default_environment
 
 from classifier import classify_as_text
 from knowledge import lookup
@@ -107,12 +108,24 @@ async def telegram_tools() -> list:
     if not os.environ.get("TELEGRAM_BOT_TOKEN"):
         return []
 
+    # MCP deliberately starts servers with a minimal environment — PATH, HOME,
+    # TEMP and little else — so a server cannot read every secret the host
+    # happens to hold. Locally that goes unnoticed because the server reads
+    # src/.env itself, but that file is kept out of the image, so inside the
+    # container it would find no token. Forward the two variables it needs and
+    # nothing more: the OpenAI key stays out of the subprocess.
+    env = get_default_environment()
+    for name in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"):
+        if os.environ.get(name):
+            env[name] = os.environ[name]
+
     client = MultiServerMCPClient(
         {
             "telegram": {
                 "command": sys.executable,
                 "args": [str(HERE / "telegram_mcp_server.py")],
                 "transport": "stdio",
+                "env": env,
             }
         }
     )
