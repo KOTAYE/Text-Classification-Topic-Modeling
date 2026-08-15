@@ -16,3 +16,7 @@ README.md
 __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
+
+# Frontend build inputs that must not enter the runtime image
+web/node_modules/
+web/dist/
