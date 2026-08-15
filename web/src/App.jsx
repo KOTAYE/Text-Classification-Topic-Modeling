@@ -45,6 +45,22 @@ function Distribution({ scores }) {
   )
 }
 
+/**
+ * Proof of delivery, not a claim of it.
+ *
+ * The receipt is Telegram's own reply — chat and message number — so what the
+ * page shows is what the API confirmed, not what the agent said it did.
+ */
+function Delivered({ delivery }) {
+  return (
+    <div className="delivery">
+      <div className="delivery-head">Sent to Telegram</div>
+      <div className="delivery-text">{delivery.text}</div>
+      {delivery.receipt && <div className="delivery-receipt">{delivery.receipt}</div>}
+    </div>
+  )
+}
+
 function Message({ turn }) {
   if (turn.role === 'user') {
     return (
@@ -69,6 +85,7 @@ function Message({ turn }) {
         )}
       </div>
       {turn.distribution && <Distribution scores={turn.distribution} />}
+      {turn.telegram && <Delivered delivery={turn.telegram} />}
     </div>
   )
 }
@@ -119,6 +136,7 @@ export default function App() {
           content: data.reply,
           tools: data.tools_used,
           distribution: data.distribution,
+          telegram: data.telegram,
         },
       ])
     } catch (err) {

@@ -61,8 +61,12 @@ answers "Nothing on file about that", say you do not have that information.
 Do not fill the gap from your own knowledge and do not guess.
 
 send_telegram_message delivers a message to Viktor's Telegram. Only use it when
-asked to send, forward or save something there, and send the finished answer
-rather than a description of it. Say afterwards that it was sent.
+asked to send, forward or save something there.
+
+Send the answer, not the question. Asked to classify a headline and send the
+result, the message should carry the topic and the confidence — quoting the
+headline as well is fine, but a message holding only the original text is
+useless to whoever receives it. Say afterwards that it was sent.
 
 Keep answers to one or two sentences."""
 
