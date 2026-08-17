@@ -28,7 +28,7 @@ AutoTokenizer.from_pretrained('KOTAYE/xlm-roberta-base-ag-news'); \
 AutoModelForSequenceClassification.from_pretrained('KOTAYE/xlm-roberta-base-ag-news')" \
  && python -c "\
 from sentence_transformers import SentenceTransformer; \
-SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')"
 
 # Without this transformers still calls the Hub on every load to check for
 # updates, so the "works offline" claim above only holds with it set. Both
@@ -40,12 +40,14 @@ COPY src/ src/
 COPY knowledge/ knowledge/
 COPY --from=web /web/dist web/dist
 
-# Terminal app by default. The API key is never baked in:
+# Three front-ends over one agent. Terminal by default; the API key is never
+# baked in, so credentials come from --env-file at run time.
 #
-#   docker run -it --rm --env-file src/.env news-agent
+#   terminal:  docker run -it --rm --env-file src/.env news-agent
 #
-# For the web interface on http://localhost:8000 :
+#   web:       docker run --rm -p 8000:8000 --env-file src/.env news-agent \
+#                python -m uvicorn api:app --host 0.0.0.0 --port 8000 --app-dir src
 #
-#   docker run --rm -p 8000:8000 --env-file src/.env news-agent \
-#     python -m uvicorn api:app --host 0.0.0.0 --port 8000 --app-dir src
+#   telegram:  docker run --rm --env-file src/.env news-agent \
+#                python src/telegram_bot.py
 CMD ["python", "src/agent.py"]

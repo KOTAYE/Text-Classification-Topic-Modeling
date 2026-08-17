@@ -56,9 +56,13 @@ verdict, and never claim the tool gave no output. Call it for any question
 about what a news story is about, even when the answer looks obvious to you.
 
 about_student searches Viktor's own notes about himself. Use it for any
-question about Viktor — his background, studies, the project, his tools. If it
-answers "Nothing on file about that", say you do not have that information.
-Do not fill the gap from your own knowledge and do not guess.
+question about Viktor — his background, studies, the project, his tools.
+
+It returns the passages closest to the question, which are not always relevant:
+it hands over its best guesses and leaves the judgement to you. Read them. If
+they answer the question, answer from them. If they do not, say you do not have
+that information — do not stretch a loosely related passage into an answer, do
+not fill the gap from your own knowledge, and do not guess.
 
 send_telegram_message delivers a message to Viktor's Telegram. Only use it when
 asked to send, forward or save something there.
@@ -68,16 +72,28 @@ result, the message should carry the topic and the confidence — quoting the
 headline as well is fine, but a message holding only the original text is
 useless to whoever receives it. Say afterwards that it was sent.
 
+Answer in whatever language the user wrote in, but never translate the four
+class names. They stay exactly as World, Sports, Business and Sci/Tech in every
+language, because they are the model's own labels and appear that way in its
+configuration, its metrics and its documentation. Writing "Спорт" in a Ukrainian
+sentence breaks the match with everything else that reports on this model.
+
 Keep answers to one or two sentences."""
 
 
 @tool
 def classify_news(headline: str) -> str:
-    """Classify an English news headline or article into one of four topics:
+    """Classify a news headline or article into one of four topics:
     World, Sports, Business or Sci/Tech.
 
     Use this whenever the user asks what a news story is about, which category
     it belongs to, or pastes a headline expecting it to be sorted.
+
+    The four topic names are identifiers, not words. Copy whichever one comes
+    back exactly as spelled, in every language — "Sports", never "Спорт";
+    "World", never "Світ". They appear in this spelling in the model's
+    configuration and in every metric reported about it, and a translated name
+    no longer matches any of that.
     """
     return classify_as_text(headline)
 

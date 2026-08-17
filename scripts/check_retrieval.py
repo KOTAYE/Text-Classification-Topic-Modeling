@@ -1,9 +1,14 @@
-"""Check that the retrieval threshold still separates answerable questions
-from unanswerable ones.
+"""Report what retrieval finds for each question, in both languages.
 
-Run this after editing knowledge/about_me.md — adding or rewording facts moves
-the scores around, and a threshold tuned for the old text can start refusing
-questions the notes do answer.
+Run this after editing knowledge/about_me.md: rewording a fact can make it
+unfindable, and a question that scores near the bottom is one edit away from
+being missed entirely.
+
+Read it as a ranking, not a pass/fail. The scores are not comparable across
+languages — a Ukrainian question against these English notes scores far lower
+than the English equivalent for the same fact — so no single cutoff separates
+answerable from unanswerable, and the agent's own judgement is what decides.
+See the note on MIN_SCORE in src/knowledge.py.
 
     python scripts/check_retrieval.py
 """
@@ -31,52 +36,77 @@ ANSWERABLE = [
     "Why did he train on Colab?",
 ]
 
-# Questions the notes do not cover. The agent must refuse these, not invent.
+ANSWERABLE_UK = [
+    "Що це за проєкт?",
+    "Коли народився студент?",
+    "Де він живе?",
+    "Де він навчається?",
+    "Хто його ментор?",
+    "Який датасет він використав?",
+    "Якої точності досягла модель?",
+    "Які в нього захоплення?",
+    "Якими мовами він володіє?",
+    "Якими інструментами він користується?",
+]
+
+# Questions the notes do not cover, kept as a reference point: whatever the
+# worst answerable question scores should still sit above these.
 UNANSWERABLE = [
     "What is his favourite food?",
     "Does he have a driving licence?",
     "What is his phone number?",
     "Who is the president of France?",
     "How tall is he?",
+    "Яка його улюблена їжа?",
+    "Який у нього зріст?",
 ]
 
 
+def report(title: str, questions: list[str]) -> float:
+    """Print each question with its best match, and return the weakest score."""
+    print(title)
+    weakest = 1.0
+    for question in questions:
+        doc, score = _store().similarity_search_with_score(question, k=1)[0]
+        weakest = min(weakest, score)
+        found = " ".join(doc.page_content.split())[:56]
+        print(f"  {score:.3f}  {question:44s} {found}")
+    print()
+    return weakest
+
+
 def main() -> int:
-    print(f"document  : {DOC.name}")
-    print(f"passages  : {len(_passages(DOC.read_text(encoding='utf-8')))}")
-    print(f"threshold : {MIN_SCORE}\n")
+    print(f"document : {DOC.name}")
+    print(f"passages : {len(_passages(DOC.read_text(encoding='utf-8')))}")
+    print(f"floor    : {MIN_SCORE}\n")
 
-    failures = 0
+    weakest_en = report("answerable, English", ANSWERABLE)
+    weakest_uk = report("answerable, Ukrainian", ANSWERABLE_UK)
 
-    print("should be answered")
-    lowest = 1.0
-    for question in ANSWERABLE:
-        score = _store().similarity_search_with_score(question, k=1)[0][1]
-        lowest = min(lowest, score)
-        if score < MIN_SCORE:
-            failures += 1
-            print(f"  MISS  {score:.3f}  {question}")
-        else:
-            print(f"        {score:.3f}  {question}")
-
-    print("\nshould be refused")
-    highest = 0.0
+    print("not covered by the notes")
+    strongest_miss = 0.0
     for question in UNANSWERABLE:
         score = _store().similarity_search_with_score(question, k=1)[0][1]
-        highest = max(highest, score)
-        if not lookup(question).startswith("Nothing"):
-            failures += 1
-            print(f"  LEAK  {score:.3f}  {question}")
-        else:
-            print(f"        {score:.3f}  {question}")
+        strongest_miss = max(strongest_miss, score)
+        print(f"  {score:.3f}  {question}")
 
-    print(f"\nlowest answerable : {lowest:.3f}")
-    print(f"highest refusable : {highest:.3f}")
-    print(f"gap               : {lowest - highest:+.3f}")
+    print(f"\nweakest answerable  English {weakest_en:.3f}   Ukrainian {weakest_uk:.3f}")
+    print(f"strongest not-covered       {strongest_miss:.3f}")
+    print(
+        "\nUkrainian scores lower across the board — the notes are in English.\n"
+        "That overlap is why the cutoff is only a floor and the agent decides."
+    )
 
-    if failures:
-        print(f"\n{failures} problem(s). Adjust MIN_SCORE in src/knowledge.py,")
-        print("or reword the notes so the fact is easier to retrieve.")
+    below_floor = [
+        q
+        for q in ANSWERABLE + ANSWERABLE_UK
+        if _store().similarity_search_with_score(q, k=1)[0][1] < MIN_SCORE
+    ]
+    if below_floor:
+        print(f"\n{len(below_floor)} answerable question(s) fall below the floor:")
+        for q in below_floor:
+            print(f"  {q}")
+        print("Reword the relevant note so the fact is easier to find.")
         return 1
 
     print("\nok")

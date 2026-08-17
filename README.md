@@ -174,7 +174,7 @@ Hugging Face Hub rather than committed here.
 
 ## The agent
 
-A terminal agent with three tools:
+Three tools:
 
 | Tool | What it does |
 |---|---|
@@ -182,14 +182,47 @@ A terminal agent with three tools:
 | `about_student` | retrieval over `knowledge/about_me.md` |
 | `send_telegram_message` | delivers a message to Telegram, over MCP |
 
-```bash
-python src/agent.py
-```
-
 Ask it to classify a headline and it calls the transformer. Ask about the
 student and it searches the notes, answering "I do not have that information"
 when they do not cover the question rather than inventing one. Ask it to send
 something to Telegram and it chains two tools: classify first, then send.
+
+It answers in whatever language it was addressed in, but never translates the
+four class names — those are the model's own labels and appear in that spelling
+in its configuration and in every metric reported here, so a translated name
+would stop matching any of it.
+
+### Three ways in
+
+The same agent, the same tools, three front-ends:
+
+```bash
+python src/agent.py          # terminal
+python src/telegram_bot.py   # Telegram, long-polling
+uvicorn api:app --app-dir src --port 8000   # web, see below
+```
+
+Telegram appears twice in this project and the two directions are separate.
+`telegram_bot.py` is a front-end: it carries messages from a chat to the agent
+and back. `telegram_mcp_server.py` is a tool: it lets the agent send a message
+on its own initiative. Ask the bot to "classify this and send me the result"
+and both fire — the reply arrives in the chat, and a second message arrives
+from the tool.
+
+### Retrieval
+
+Passages are embedded with `paraphrase-multilingual-MiniLM-L12-v2` and searched
+by meaning, so a Ukrainian question finds an English note. The obvious choice,
+`all-MiniLM-L6-v2`, is smaller and slightly sharper but English-only: with it,
+"Що це за проєкт?" matched nothing and the agent reported having no information
+about a project its notes describe at length.
+
+There is no meaningful relevance threshold, and `scripts/check_retrieval.py`
+shows why. Similarity scores are not comparable across languages: the weakest
+answerable Ukrainian question scores 0.10 while an unanswerable English one
+scores 0.35, so any cutoff either drops real answers or admits noise. Retrieval
+returns its best five passages and the agent decides whether they answer the
+question — which it does correctly, including refusing when they do not.
 
 ### Telegram over MCP
 
