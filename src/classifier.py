@@ -45,8 +45,21 @@ def classify(text: str) -> list[dict]:
 
 
 def classify_as_text(text: str) -> str:
-    """Human-readable verdict. This is what the agent reads."""
-    ranked = classify(text)
+    """Human-readable verdict. This is what the agent reads.
+
+    A service that is down becomes a sentence rather than an exception: the
+    agent can tell the user the classifier is unavailable, which beats a bare
+    500 arriving at the page.
+    """
+    try:
+        ranked = classify(text)
+    except httpx.HTTPError as error:
+        return (
+            "The classifier is unavailable right now, so this text could not be "
+            f"classified ({type(error).__name__}). Tell the user, and do not "
+            "guess the topic yourself."
+        )
+
     best, second = ranked[0], ranked[1]
 
     line = f"Topic: {best['label']} (confidence {best['score']:.0%})"

@@ -100,10 +100,19 @@ def lookup(question: str) -> str:
     """Return the passages closest in meaning to the question, if any are close
     enough to be worth reading."""
     if SERVICE_URL:
-        response = httpx.post(
-            f"{SERVICE_URL}/search", json={"question": question}, timeout=TIMEOUT
-        )
-        response.raise_for_status()
+        # A service that is down becomes a sentence rather than an exception,
+        # so the agent can say so instead of a bare 500 reaching the page.
+        try:
+            response = httpx.post(
+                f"{SERVICE_URL}/search", json={"question": question}, timeout=TIMEOUT
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as error:
+            return (
+                "The notes are unavailable right now, so this could not be looked "
+                f"up ({type(error).__name__}). Tell the user, and do not answer "
+                "from your own knowledge."
+            )
         return response.json()["passages"]
 
     hits = _store().similarity_search_with_score(question, k=TOP_K)

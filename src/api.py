@@ -123,7 +123,13 @@ async def chat(request: ChatRequest):
         if call["name"] == "classify_news":
             classified_text = call["args"].get("headline")
             if classified_text:
-                distribution = classify(classified_text)
+                # Only the bar chart depends on this. If the classifier is
+                # unavailable the agent has already said so in its reply, and
+                # losing the chart is better than losing the whole response.
+                try:
+                    distribution = classify(classified_text)
+                except Exception:
+                    distribution = None
             break
 
     # A badge saying "telegram" proves nothing to someone watching a demo.
