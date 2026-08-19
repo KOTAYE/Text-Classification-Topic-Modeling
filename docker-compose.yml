@@ -1,0 +1,86 @@
+# Four services over one agent.
+#
+# The split is by weight, which is where it earns its keep: the model and the
+# embeddings are loaded once each, in containers of their own, instead of once
+# per front-end. The agent carries no torch at all and stays small.
+#
+#   docker compose up --build          web interface on http://localhost:8000
+#   docker compose --profile telegram up -d    also start the Telegram bot
+#   docker compose run --rm terminal           the terminal app
+
+services:
+  model:
+    build:
+      context: .
+      dockerfile: services/model/Dockerfile
+    healthcheck:
+      # The agent must not start asking before the weights are loaded.
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  knowledge:
+    build:
+      context: .
+      dockerfile: services/knowledge/Dockerfile
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  agent:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: src/.env
+    environment:
+      MODEL_SERVICE_URL: http://model:8000
+      KNOWLEDGE_SERVICE_URL: http://knowledge:8000
+    depends_on:
+      model:
+        condition: service_healthy
+      knowledge:
+        condition: service_healthy
+
+  # Same image as the agent, different entrypoint. Off by default so a plain
+  # `up` does not start polling Telegram.
+  telegram:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    command: python src/telegram_bot.py
+    env_file: src/.env
+    environment:
+      MODEL_SERVICE_URL: http://model:8000
+      KNOWLEDGE_SERVICE_URL: http://knowledge:8000
+    depends_on:
+      model:
+        condition: service_healthy
+      knowledge:
+        condition: service_healthy
+    profiles: [telegram]
+
+  # `docker compose run --rm terminal`
+  terminal:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    command: python src/agent.py
+    env_file: src/.env
+    environment:
+      MODEL_SERVICE_URL: http://model:8000
+      KNOWLEDGE_SERVICE_URL: http://knowledge:8000
+    depends_on:
+      model:
+        condition: service_healthy
+      knowledge:
+        condition: service_healthy
+    profiles: [terminal]
+    stdin_open: true
+    tty: true

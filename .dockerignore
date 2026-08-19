@@ -1,22 +1,21 @@
-# Secrets never enter the image — the key is passed at run time
+﻿# Secrets never enter an image — keys are passed at run time
 src/.env
 *.key
 
-# Not needed to run the agent
+# Not needed to run anything
 .git
 .gitignore
 notebooks/
 scripts/
+eval/
 data/
 models/
 README.md
 
-# Local Python noise
+# Build inputs and local noise
+web/node_modules/
+web/dist/
 .venv/
 __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
-
-# Frontend build inputs that must not enter the runtime image
-web/node_modules/
-web/dist/

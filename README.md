@@ -272,20 +272,65 @@ uvicorn api:app --reload --port 8000 --app-dir src
 cd web && npm install && npm run dev
 ```
 
-## Running in Docker
+## Running it
 
-The frontend is built in a Node stage and only the built files are copied into
-the runtime image, so Node itself never ships.
+```bash
+docker compose up --build                 # web interface on http://localhost:8000
+docker compose --profile telegram up -d   # also start the Telegram bot
+docker compose run --rm terminal          # the terminal app
+```
+
+### Why it is split this way
+
+```
+    agent  ──HTTP──>  model      the classifier, torch + 1.1 GB of weights
+    + web             knowledge  retrieval, multilingual embeddings
+    no torch
+```
+
+The split follows weight, because that is where it pays. The classifier and
+the retrieval index are models held in memory; the agent is orchestration and
+network calls. Cutting there means each model is loaded **once**, in one
+container, no matter how many front-ends are running — before, the web API and
+the Telegram bot each held their own copy of everything.
+
+| Image | Size |
+|---|---|
+| `model` | 3.77 GB |
+| `knowledge` | 2.95 GB |
+| `agent` | **384 MB** |
+
+The agent is the part whose code actually changes, and it now builds and
+deploys in 384 MB instead of five gigabytes. Its startup is effectively
+instant, because it has nothing to load.
+
+The honest cost: total disk went **up**, from 5.1 GB for the single image to
+7.1 GB, since torch is now installed in two places. The win is in memory at
+run time and in how fast the frequently-changing service ships, not in disk.
+
+Compose waits on health checks before starting the agent, so the first request
+cannot arrive at a container that is still loading weights — the failure mode
+that splitting a working monolith introduces in the first place.
+
+The terminal app and the Telegram bot are the same image as the agent with a
+different command; there is no reason to build three copies of it.
+
+### Without Docker
+
+`classifier.py` and `knowledge.py` check for `MODEL_SERVICE_URL` and
+`KNOWLEDGE_SERVICE_URL`. Set, they call the services; unset, they load the
+models in-process. So `python src/agent.py` still works on its own with
+nothing else running.
+
+### Single-container fallback
+
+The `Dockerfile` at the repository root still builds everything as one image.
+It is kept deliberately: four services have more ways to fail than one, and a
+demo benefits from having a simpler thing to fall back on.
 
 ```bash
 docker build -t news-agent .
-
-# terminal app
 docker run -it --rm --env-file src/.env news-agent
-
-# web interface on http://localhost:8000
-docker run --rm -p 8000:8000 --env-file src/.env news-agent \
-  python -m uvicorn api:app --host 0.0.0.0 --port 8000 --app-dir src
 ```
 
 Both models are baked into the image at build time and `HF_HUB_OFFLINE=1` is

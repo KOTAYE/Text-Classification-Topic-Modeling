@@ -1,11 +1,19 @@
-"""Retrieval over facts about the student — the RAG half of the agent."""
+"""Retrieval over facts about the student — the RAG half of the agent.
 
+Embeds and searches in this process by default. Set KNOWLEDGE_SERVICE_URL and
+it calls the knowledge service instead, which is how it works under docker
+compose. Callers see the same `lookup` either way.
+"""
+
+import os
 import re
 from functools import lru_cache
 from pathlib import Path
 
-from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_huggingface import HuggingFaceEmbeddings
+import httpx
+
+SERVICE_URL = os.environ.get("KNOWLEDGE_SERVICE_URL")
+TIMEOUT = 30
 
 _KNOWLEDGE = Path(__file__).parent.parent / "knowledge"
 
@@ -74,8 +82,15 @@ def _passages(markdown: str) -> list[str]:
 
 
 @lru_cache(maxsize=1)
-def _store() -> InMemoryVectorStore:
-    """Embed the document once per process. It is one page, so this is cheap."""
+def _store():
+    """Embed the document once per process. It is one page, so this is cheap.
+
+    Imported lazily so the agent service, which delegates to the knowledge
+    service, does not need sentence-transformers or torch installed.
+    """
+    from langchain_core.vectorstores import InMemoryVectorStore
+    from langchain_huggingface import HuggingFaceEmbeddings
+
     store = InMemoryVectorStore(HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL))
     store.add_texts(_passages(DOC.read_text(encoding="utf-8")))
     return store
@@ -84,6 +99,13 @@ def _store() -> InMemoryVectorStore:
 def lookup(question: str) -> str:
     """Return the passages closest in meaning to the question, if any are close
     enough to be worth reading."""
+    if SERVICE_URL:
+        response = httpx.post(
+            f"{SERVICE_URL}/search", json={"question": question}, timeout=TIMEOUT
+        )
+        response.raise_for_status()
+        return response.json()["passages"]
+
     hits = _store().similarity_search_with_score(question, k=TOP_K)
     relevant = [doc for doc, score in hits if score >= MIN_SCORE]
 

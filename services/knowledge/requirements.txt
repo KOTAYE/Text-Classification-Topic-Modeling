@@ -1,0 +1,10 @@
+# CPU-only torch: sentence-transformers needs it, but not the CUDA build
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch==2.13.0+cpu
+sentence-transformers==5.7.0
+langchain-core==1.5.3
+langchain-huggingface==1.2.2
+httpx==0.28.1
+fastapi==0.141.1
+uvicorn[standard]==0.52.2

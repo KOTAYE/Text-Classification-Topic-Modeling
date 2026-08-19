@@ -1,0 +1,11 @@
+# No torch here. The agent delegates classification and retrieval over HTTP,
+# so this image is a few hundred megabytes rather than several gigabytes.
+langchain==1.3.14
+langchain-openai==1.4.2
+langchain-groq==1.1.3
+mcp==1.29.0
+langchain-mcp-adapters==0.3.2
+python-dotenv==1.2.2
+httpx==0.28.1
+fastapi==0.141.1
+uvicorn[standard]==0.52.2
