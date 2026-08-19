@@ -274,6 +274,22 @@ cd web && npm install && npm run dev
 
 ## Running it
 
+Credentials first — without them `docker compose` stops before it starts,
+because it will not run without the env file.
+
+```bash
+cp src/.env.example src/.env    # then fill in OPENAI_API_KEY
+```
+
+Only the chat model key is required. Telegram is optional: leave those blank
+and the agent comes up with two tools instead of three. `GROQ_API_KEY` is an
+alternative to OpenAI, used automatically when no OpenAI key is set.
+
+The notes the agent answers from, `knowledge/about_me.md`, are deliberately not
+in the repository — they are personal details. A clone falls back to
+`knowledge/about_me.example.md` and answers with its placeholders until you
+copy it across and fill it in.
+
 ```bash
 docker compose up --build                 # web interface on http://localhost:8000
 docker compose --profile telegram up -d   # also start the Telegram bot
