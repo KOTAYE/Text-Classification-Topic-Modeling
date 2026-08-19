@@ -15,6 +15,11 @@ WORKDIR /app
 COPY services/agent/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Without this Python block-buffers stdout when it is a pipe, so
+# `docker compose logs` stays empty while the container is plainly running —
+# exactly when you most want to see what it is doing.
+ENV PYTHONUNBUFFERED=1
+
 COPY src/ src/
 COPY --from=web /web/dist web/dist
 
